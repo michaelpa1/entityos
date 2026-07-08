@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { getAppBaseUrl } from "@/lib/cron";
 import { saveSettings } from "./data";
 import { settingsFormSchema, type SettingsFormValues } from "./schema";
 
@@ -15,6 +16,28 @@ export type SettingsActionResult =
 
 export type RunAiSnapshotsResult =
   | { ok: true; timestamp: string }
+  | { ok: false; message: string };
+
+export type RunSearchSnapshotResult =
+  | {
+      ok: true;
+      query: string;
+      position: number;
+      ctrPercent: number;
+      clicks: number;
+      searchVolume: number;
+      timestamp: string;
+    }
+  | { ok: false; message: string };
+
+export type CheckLinksNowResult =
+  | {
+      ok: true;
+      checked: number;
+      broken: number;
+      summary: string;
+      brokenAssetIds: number[];
+    }
   | { ok: false; message: string };
 
 function validationError(
@@ -54,11 +77,7 @@ export async function runAiSnapshotsNow(): Promise<RunAiSnapshotsResult> {
     };
   }
 
-  const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL ??
-    (process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : "http://localhost:3000");
+  const baseUrl = getAppBaseUrl();
 
   const response = await fetch(`${baseUrl}/api/cron/ai-snapshots`, {
     method: "POST",
@@ -85,5 +104,101 @@ export async function runAiSnapshotsNow(): Promise<RunAiSnapshotsResult> {
   return {
     ok: true,
     timestamp: body?.timestamp ?? new Date().toISOString(),
+  };
+}
+
+export async function runSearchSnapshotNow(): Promise<RunSearchSnapshotResult> {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) {
+    return {
+      ok: false,
+      message: "CRON_SECRET is not configured on the server.",
+    };
+  }
+
+  const baseUrl = getAppBaseUrl();
+
+  const response = await fetch(`${baseUrl}/api/cron/search-snapshots`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${secret}` },
+    cache: "no-store",
+  });
+
+  const body = (await response.json().catch(() => null)) as {
+    ok?: boolean;
+    timestamp?: string;
+    query?: string;
+    position?: number;
+    ctrPercent?: number;
+    clicks?: number;
+    searchVolume?: number;
+    error?: string;
+    message?: string;
+  } | null;
+
+  if (!response.ok || !body?.ok) {
+    return {
+      ok: false,
+      message: body?.error ?? body?.message ?? "Search snapshot run failed.",
+    };
+  }
+
+  revalidatePath("/search-snapshots");
+  revalidatePath("/");
+
+  return {
+    ok: true,
+    query: body.query ?? "",
+    position: body.position ?? 0,
+    ctrPercent: body.ctrPercent ?? 0,
+    clicks: body.clicks ?? 0,
+    searchVolume: body.searchVolume ?? 0,
+    timestamp: body.timestamp ?? new Date().toISOString(),
+  };
+}
+
+export async function checkAllLinksNow(): Promise<CheckLinksNowResult> {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) {
+    return {
+      ok: false,
+      message: "CRON_SECRET is not configured on the server.",
+    };
+  }
+
+  const baseUrl = getAppBaseUrl();
+
+  const response = await fetch(`${baseUrl}/api/cron/check-links`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${secret}` },
+    cache: "no-store",
+  });
+
+  const body = (await response.json().catch(() => null)) as {
+    ok?: boolean;
+    checked?: number;
+    broken?: number;
+    summary?: string;
+    brokenAssetIds?: number[];
+    error?: string;
+  } | null;
+
+  if (!response.ok || !body?.ok) {
+    return {
+      ok: false,
+      message: body?.error ?? "Link check failed.",
+    };
+  }
+
+  revalidatePath("/assets");
+  revalidatePath("/settings");
+  revalidatePath("/");
+
+  return {
+    ok: true,
+    checked: body.checked ?? 0,
+    broken: body.broken ?? 0,
+    summary: body.summary ?? "Link check completed.",
+    brokenAssetIds: body.brokenAssetIds ?? [],
   };
 }

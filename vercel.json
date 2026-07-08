@@ -3,6 +3,14 @@
     {
       "path": "/api/cron/ai-snapshots",
       "schedule": "0 0 1 * *"
+    },
+    {
+      "path": "/api/cron/search-snapshots",
+      "schedule": "0 0 1 * *"
+    },
+    {
+      "path": "/api/cron/check-links",
+      "schedule": "0 0 * * 0"
     }
   ]
 }

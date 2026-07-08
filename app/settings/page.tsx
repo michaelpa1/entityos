@@ -1,5 +1,7 @@
+import { CheckAllLinksButton } from "./check-all-links-button";
 import { SettingsForm } from "./settings-form";
 import { RunAiSnapshotsButton } from "./run-ai-snapshots-button";
+import { RunSearchSnapshotButton } from "./run-search-snapshot-button";
 import { getSettingsFormValues } from "./data";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +22,8 @@ export default async function SettingsPage() {
 
       <div className="flex flex-col gap-6">
         <SettingsForm defaultValues={defaultValues} />
+        <RunSearchSnapshotButton />
+        <CheckAllLinksButton />
         <RunAiSnapshotsButton />
       </div>
     </main>
