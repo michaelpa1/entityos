@@ -25,79 +25,115 @@ export const assetTypeEnum = pgEnum("asset_type", [
   "book",
   "podcast",
   "podcast_episode",
-  "youtube",
-  "video",
-  "interview",
+  "youtube_channel",
+  "youtube_video",
   "article",
+  "interview",
   "speaking_event",
   "professional_profile",
+  "social_profile",
+  "press",
   "company_page",
-  "ai_product",
+  "product",
   "photography",
   "music",
-  "advisory",
+  "other",
 ]);
 
 export const assetStatusEnum = pgEnum("asset_status", [
   "active",
+  "incomplete",
+  "outdated",
   "broken",
-  "planned",
-  "archived",
+  "needs_review",
 ]);
 
-// INFERRED — not explicit in the spec.
 export const ownershipTypeEnum = pgEnum("ownership_type", [
   "owned",
-  "controlled",
-  "affiliated",
+  "employer",
+  "earned",
   "third_party",
+  "social",
+  "directory",
 ]);
 
-// INFERRED — derived from the claims list in the spec.
-export const entityRoleEnum = pgEnum("entity_role", [
-  "author",
-  "product_manager",
-  "speaker",
-  "photographer",
-  "ai_product_builder",
-  "founder",
-  "advisor",
+/**
+ * Asset-level entity role — how an asset functions within the entity graph.
+ * Distinct from the claims-level `entity_role` (a person's roles), which is
+ * intentionally left unchanged below.
+ */
+export const assetEntityRoleEnum = pgEnum("asset_entity_role", [
+  "primary_canonical",
+  "supporting",
+  "evidence",
+  "weak_signal",
+  "outdated",
 ]);
 
-export const confidenceLevelEnum = pgEnum("confidence_level", [
-  "low",
-  "medium",
+// What kind of claim this is (spec-defined).
+export const claimTypeEnum = pgEnum("claim_type", [
+  "identity",
+  "role",
+  "credential",
+  "product",
+  "book",
+  "speaking",
+  "media",
+  "award",
+  "location",
+  "employer",
+  "expertise",
+  "other",
+]);
+
+// How confident we are the claim is true and defensible.
+export const claimConfidenceEnum = pgEnum("claim_confidence", [
+  "strong",
+  "moderate",
+  "weak",
+  "unsupported",
+  "disputed",
+]);
+
+// How important the claim is for the public-facing entity.
+export const publicImportanceEnum = pgEnum("public_importance", [
   "high",
-]);
-
-export const importanceLevelEnum = pgEnum("importance_level", [
-  "low",
   "medium",
-  "high",
-  "critical",
+  "low",
 ]);
 
 export const evidenceStrengthEnum = pgEnum("evidence_strength", [
-  "weak",
-  "moderate",
   "strong",
+  "moderate",
+  "weak",
+]);
+
+export const evidenceStatusEnum = pgEnum("evidence_status", [
+  "valid",
+  "incomplete",
+  "outdated",
+  "broken",
+  "incorrect",
 ]);
 
 export const evidenceSourceTypeEnum = pgEnum("evidence_source_type", [
-  "website_page",
-  "podcast_interview",
-  "youtube_appearance",
-  "employer_page",
-  "media_article",
-  "conference_listing",
+  "official",
+  "employer",
+  "media",
+  "podcast",
+  "video",
   "book_retailer",
+  "directory",
+  "social",
+  "search_result",
   "ai_response",
+  "other",
 ]);
 
 export const searchEngineEnum = pgEnum("search_engine", [
   "google",
   "bing",
-  "duckduckgo",
+  "other",
 ]);
 
 export const deviceTypeEnum = pgEnum("device_type", ["desktop", "mobile"]);
@@ -107,6 +143,7 @@ export const aiProviderEnum = pgEnum("ai_provider", [
   "gemini",
   "perplexity",
   "claude",
+  "other",
 ]);
 
 export const schemaTypeEnum = pgEnum("schema_type", [
@@ -114,15 +151,16 @@ export const schemaTypeEnum = pgEnum("schema_type", [
   "book",
   "podcast",
   "podcast_episode",
-  "article",
   "video_object",
-  "faq_page",
+  "article",
   "organization",
   "website",
-  "breadcrumb",
+  "breadcrumb_list",
+  "faq_page",
   "image_object",
   "event",
   "course",
+  "other",
 ]);
 
 export const schemaStatusEnum = pgEnum("schema_status", [
@@ -140,14 +178,36 @@ export const roadmapStatusEnum = pgEnum("roadmap_status", [
   "done",
 ]);
 
-export const priorityLevelEnum = pgEnum("priority_level", [
-  "low",
-  "medium",
-  "high",
-  "critical",
+// Priority is a time-horizon bucket (spec: now / next / later / someday).
+export const roadmapPriorityEnum = pgEnum("roadmap_priority", [
+  "now",
+  "next",
+  "later",
+  "someday",
 ]);
 
-export const effortLevelEnum = pgEnum("effort_level", ["low", "medium", "high"]);
+export const roadmapCategoryEnum = pgEnum("roadmap_category", [
+  "identity",
+  "website",
+  "schema",
+  "books",
+  "podcast",
+  "video",
+  "press",
+  "speaking",
+  "profiles",
+  "ai_visibility",
+  "search_visibility",
+  "evidence",
+  "cleanup",
+  "other",
+]);
+
+export const roadmapEffortEnum = pgEnum("roadmap_effort", [
+  "small",
+  "medium",
+  "large",
+]);
 
 export const impactLevelEnum = pgEnum("impact_level", ["low", "medium", "high"]);
 
@@ -188,6 +248,7 @@ export const assets = pgTable("assets", {
   url: text("url"),
   status: assetStatusEnum("status").notNull().default("active"),
   ownershipType: ownershipTypeEnum("ownership_type"),
+  entityRole: assetEntityRoleEnum("entity_role"),
   authorityScore: integer("authority_score"),
   consistencyScore: integer("consistency_score"),
   notes: text("notes"),
@@ -197,37 +258,48 @@ export const assets = pgTable("assets", {
 
 export const claims = pgTable("claims", {
   id: serial("id").primaryKey(),
-  statement: text("statement").notNull(),
-  entityRole: entityRoleEnum("entity_role"),
-  confidence: confidenceLevelEnum("confidence").notNull().default("medium"),
-  importance: importanceLevelEnum("importance").notNull().default("medium"),
+  claimText: text("claim_text").notNull(),
+  claimType: claimTypeEnum("claim_type").notNull().default("other"),
+  confidence: claimConfidenceEnum("confidence").notNull().default("moderate"),
+  publicImportance: publicImportanceEnum("public_importance")
+    .notNull()
+    .default("medium"),
+  shouldBePublic: boolean("should_be_public").notNull().default(true),
   notes: text("notes"),
   ...timestamps,
 });
 
 export const evidence = pgTable("evidence", {
   id: serial("id").primaryKey(),
+  title: text("title").notNull(),
   sourceUrl: text("source_url"),
-  sourceType: evidenceSourceTypeEnum("source_type"),
-  strength: evidenceStrengthEnum("strength"),
-  summary: text("summary"),
-  evidenceDate: timestamp("evidence_date"),
-  notes: text("notes"),
+  sourceType: evidenceSourceTypeEnum("source_type").notNull().default("other"),
+  evidenceStrength: evidenceStrengthEnum("evidence_strength")
+    .notNull()
+    .default("moderate"),
+  evidenceStatus: evidenceStatusEnum("evidence_status")
+    .notNull()
+    .default("valid"),
+  quoteOrSummary: text("quote_or_summary"),
+  datePublished: timestamp("date_published"),
   claimId: integer("claim_id").references(() => claims.id),
   assetId: integer("asset_id").references(() => assets.id),
+  notes: text("notes"),
   ...timestamps,
 });
 
 export const searchSnapshots = pgTable("search_snapshots", {
   id: serial("id").primaryKey(),
-  searchEngine: searchEngineEnum("search_engine").notNull(),
+  searchEngine: searchEngineEnum("search_engine").notNull().default("google"),
   query: text("query").notNull(),
-  snapshotDate: timestamp("snapshot_date"),
-  device: deviceTypeEnum("device"),
   location: text("location"),
-  topResult: text("top_result"),
-  knowledgePanel: boolean("knowledge_panel").default(false),
-  aiOverview: boolean("ai_overview").default(false),
+  device: deviceTypeEnum("device_type").notNull().default("desktop"),
+  snapshotDate: timestamp("snapshot_date"),
+  hasKnowledgePanel: boolean("has_knowledge_panel").notNull().default(false),
+  hasAiOverview: boolean("has_ai_overview").notNull().default(false),
+  topResultUrl: text("top_result_url"),
+  topResultTitle: text("top_result_title"),
+  observedSummary: text("observed_summary"),
   screenshotUrl: text("screenshot_url"),
   notes: text("notes"),
   ...timestamps,
@@ -235,12 +307,13 @@ export const searchSnapshots = pgTable("search_snapshots", {
 
 export const aiSnapshots = pgTable("ai_snapshots", {
   id: serial("id").primaryKey(),
-  provider: aiProviderEnum("provider").notNull(),
+  provider: aiProviderEnum("provider").notNull().default("chatgpt"),
   prompt: text("prompt").notNull(),
-  summary: text("summary"),
+  responseSummary: text("response_summary"),
   fullResponse: text("full_response"),
   confidenceScore: integer("confidence_score"),
   snapshotDate: timestamp("snapshot_date"),
+  notes: text("notes"),
   ...timestamps,
 });
 
@@ -248,8 +321,9 @@ export const schemaItems = pgTable("schema_items", {
   id: serial("id").primaryKey(),
   schemaType: schemaTypeEnum("schema_type").notNull(),
   status: schemaStatusEnum("status").notNull().default("missing"),
+  relatedAssetId: integer("related_asset_id").references(() => assets.id),
+  validationUrl: text("validation_url"),
   notes: text("notes"),
-  url: text("url"),
   ...timestamps,
 });
 
@@ -257,13 +331,15 @@ export const roadmapItems = pgTable("roadmap_items", {
   id: serial("id").primaryKey(),
   title: text("title").notNull(),
   description: text("description"),
-  category: text("category"),
-  priority: priorityLevelEnum("priority").notNull().default("medium"),
+  category: roadmapCategoryEnum("category").notNull().default("other"),
+  priority: roadmapPriorityEnum("priority").notNull().default("next"),
   impact: impactLevelEnum("impact").notNull().default("medium"),
-  effort: effortLevelEnum("effort").notNull().default("medium"),
+  effort: roadmapEffortEnum("effort").notNull().default("medium"),
   status: roadmapStatusEnum("status").notNull().default("backlog"),
+  dueDate: timestamp("due_date"),
   relatedAssetId: integer("related_asset_id").references(() => assets.id),
   relatedClaimId: integer("related_claim_id").references(() => claims.id),
+  notes: text("notes"),
   ...timestamps,
 });
 
