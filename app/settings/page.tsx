@@ -1,4 +1,5 @@
 import { SettingsForm } from "./settings-form";
+import { RunAiSnapshotsButton } from "./run-ai-snapshots-button";
 import { getSettingsFormValues } from "./data";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +18,10 @@ export default async function SettingsPage() {
         </p>
       </div>
 
-      <SettingsForm defaultValues={defaultValues} />
+      <div className="flex flex-col gap-6">
+        <SettingsForm defaultValues={defaultValues} />
+        <RunAiSnapshotsButton />
+      </div>
     </main>
   );
 }
