@@ -21,12 +21,12 @@ async function seed() {
   // -------------------------------------------------------------------------
   await db.insert(identityProfile).values({
     canonicalName: "Michael Pearson-Adams",
-    preferredName: "Michael Pearson-Adams",
+    preferredShortName: "Michael Pearson-Adams",
     primaryTitle:
       "Australian Product Strategist, Author, Speaker & Creative Technologist",
     canonicalIdentitySentence:
       "Michael Pearson-Adams is an Australian product strategist, author, speaker and creative technologist whose work spans AI, audio technology, product management and creative innovation.",
-    website: "https://michaelpa.com",
+    canonicalWebsiteUrl: "https://michaelpa.com",
     location: "Brisbane, Australia",
   });
   console.log("  ✓ identity_profile: 1 row");
